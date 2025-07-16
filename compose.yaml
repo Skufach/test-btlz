@@ -12,7 +12,7 @@ volumes:
 services:
 
   postgres:
-    container_name: postgres
+    container_name: postgres_wb
 
     image: postgres:16.1-alpine
 
@@ -59,6 +59,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PORT: ${APP_PORT}
+      WB_KEY: ${WB_KEY}
       NODE_ENV: production
 
     ports:
