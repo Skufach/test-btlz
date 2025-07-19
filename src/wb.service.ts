@@ -26,7 +26,7 @@ function getCurrentDateISO() {
     return `${year}-${month}-${day}`;
 }
 
-export function startJob() {
+export function startWbJob() {
     cron.schedule("*/3 * * * * *", async function () {
         try {
             const currentDate = getCurrentDateISO();

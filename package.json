@@ -32,7 +32,7 @@
         "axios": "^1.10.0",
         "commander": "^13.1.0",
         "dotenv": "^17.2.0",
-        "googleapis": "^144.0.0",
+        "googleapis": "^153.0.0",
         "knex": "^3.0.1",
         "log4js": "^6.9.1",
         "node-cron": "^4.2.1",
