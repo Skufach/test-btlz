@@ -1,9 +1,9 @@
 import * as cron from "node-cron";
-import axios from "axios";
-import { db } from "./config/knex/knexfile.js";
 import { google } from "googleapis";
+import { getTarif } from "#wb.service.js";
 
 let authClient = null;
+const listName = `${process.env.EXCEL_TARIF_LIST}`;
 
 export async function getAuthClient() {
     const auth = new google.auth.GoogleAuth({
@@ -50,28 +50,28 @@ async function setSheetData() {
         await createTarifList(service);
     }
 
-    console.log("sheets", res.data.sheets);
+    const tarif: TarifByDay = await getTarif();
 
-    // const values = [
-    //     ["Привет", "Мир"],
-    //     ["Это", "тест"],
-    // ];
-    //
-    // const range = "Лист1!A1:B2";
-    // try {
-    //
-    //     const response = await service.spreadsheets.values.update({
-    //         spreadsheetId,
-    //         range,
-    //         valueInputOption: "RAW",
-    //         requestBody: {
-    //             values,
-    //         },
-    //     });
-    //     console.log("Записали", response.data);
-    // } catch (err) {
-    //     console.error("Ошибка при записи", err);
-    // }
+    const header = [
+        ["Текущая дата", tarif.date],
+        ["Дата начала следующего тарифа", tarif.dtNextBox],
+        ["Дата окончания последнего установленного тарифа", tarif.dtTillMax],
+    ];
+
+    const range = `${listName}!A1:B3`;
+    try {
+        const response = await service.spreadsheets.values.update({
+            spreadsheetId,
+            range,
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: header,
+            },
+        });
+        console.log("Записали", response.data);
+    } catch (err) {
+        console.error("Ошибка при записи", err);
+    }
 }
 
 export function startExcelJob() {
@@ -89,7 +89,7 @@ export function startExcelJob() {
 // проверка существования страницы с нужным названием
 function checkTarifList(sheets) {
     for (const sheet of sheets) {
-        if (sheet.properties.title === `${process.env.EXCEL_TARIF_LIST}`) {
+        if (sheet.properties.title === listName) {
             return true;
         }
     }
@@ -105,7 +105,7 @@ async function createTarifList(service) {
         const addSheet = {
             "addSheet": {
                 properties: {
-                    title: `${process.env.EXCEL_TARIF_LIST}`,
+                    title: listName,
                 },
             },
         };

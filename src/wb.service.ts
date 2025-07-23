@@ -1,21 +1,7 @@
 import * as cron from "node-cron";
 import axios from "axios";
 import { db } from "./config/knex/knexfile.js";
-
-type Warehouse = {
-    boxDeliveryAndStorageExpr: string | null;
-    boxDeliveryBase: string | null;
-    boxDeliveryLiter: string | null;
-    boxStorageBase: string | null;
-    boxStorageLiter: string | null;
-    tarif_by_day_id: number | null;
-};
-
-type TarifByDay = {
-    dtNextBox: string | null;
-    dtTillMax: string | null;
-    warehouseList: Warehouse[];
-};
+import { TarifByDay } from "#type.js";
 
 function getCurrentDateISO() {
     const now = new Date();
@@ -78,6 +64,18 @@ async function insertOrUpdate(record: TarifByDay, currentDate: string) {
                 });
             }
         });
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+export async function getTarif(): Promise<TarifByDay> {
+    try {
+        return await db("tarifs")
+            .first("tarifs.date as date", "tarifs.dtNextBox as dtNextBox", "tarifs.dtTillMax as dtTillMax", db.raw("json_agg(warehouses) as warehouses"))
+            .where({ date: "2025-07-18" })
+            .leftJoin("warehouses", "tarifs.id", "warehouses.tarifId")
+            .groupBy("tarifs.id");
     } catch (e) {
         console.error(e);
     }
