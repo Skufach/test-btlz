@@ -5,6 +5,7 @@ import { TarifByDay, Warehouse } from "#type.js";
 
 let authClient = null;
 const listName = `${process.env.EXCEL_TARIF_LIST}`;
+const spreadsheetIds = JSON.parse(`${process.env.SPREADSHEET_IDS}`);
 
 export async function getAuthClient() {
     const auth = new google.auth.GoogleAuth({
@@ -19,38 +20,41 @@ export async function getAuthClient() {
     }
 }
 
-const spreadsheetId = `${process.env.TABLE_ID}`;
-const range = "Sheet1!A1:D10";
-
-async function setSheetData() {
-    const service = google.sheets({ version: "v4", auth: authClient });
-    const spreadsheetId = "1tSY0HGvFWndwvQBLyGF1LXYPF7KKu1bJl2uaNeCV9jg";
-
-    const res = await service.spreadsheets.get({ spreadsheetId });
-    const sheets = res.data.sheets;
-
-    const isExistTarifList = checkTarifList(sheets);
-
-    if (!isExistTarifList) {
-        console.log("Создаём новый лист");
-        await createTarifList(service);
-    }
-
-    const { warehouses, ...tarif } = await getTarif();
-
-    await setHeader(service, spreadsheetId, tarif);
-
-    await setBody(service, spreadsheetId, warehouses);
-}
-
 export function startExcelJob() {
     cron.schedule("*/10 * * * * *", async function () {
         try {
-            await setSheetData();
+            await excelJob();
         } catch (e) {
             throw new Error(e);
         }
     });
+}
+
+async function excelJob() {
+    const { warehouses, ...tarif } = await getTarif();
+
+    for (const spreadsheetId of spreadsheetIds) {
+        await setSheetData(spreadsheetId, tarif, warehouses);
+    }
+}
+
+async function setSheetData(spreadsheetId: string, tarif: TarifByDay, warehouses: Warehouse[]) {
+    console.log("setSheetData START for " + spreadsheetId);
+    const service = google.sheets({ version: "v4", auth: authClient });
+
+    const res = await service.spreadsheets.get({ spreadsheetId });
+    const lists = res.data.sheets;
+
+    const isExistTarifList = checkTarifList(lists);
+
+    if (!isExistTarifList) {
+        console.log("Создаём новый лист для " + spreadsheetId);
+        await createTarifList(service, spreadsheetId);
+    }
+
+    await setHeader(service, spreadsheetId, tarif);
+    await setBody(service, spreadsheetId, warehouses);
+    console.log("setSheetData END for " + spreadsheetId);
 }
 
 // проверка существования страницы с нужным названием
@@ -65,7 +69,7 @@ function checkTarifList(sheets) {
 }
 
 // создание нового листа
-async function createTarifList(service) {
+async function createTarifList(service, spreadsheetId: string) {
     try {
         console.log("createTarifList START");
 
@@ -77,7 +81,7 @@ async function createTarifList(service) {
             },
         };
 
-        const res = await service.spreadsheets.batchUpdate({ spreadsheetId: `${process.env.TABLE_ID}`, resource: { requests: [addSheet] } });
+        const res = await service.spreadsheets.batchUpdate({ spreadsheetId, resource: { requests: [addSheet] } });
         console.log("createTarifList SUCCESS", res.data);
     } catch (e) {
         console.error("createTarifList ERROR", e);
@@ -110,7 +114,7 @@ async function setHeader(service, spreadsheetId: string, tarif: Omit<TarifByDay,
 
 async function setBody(service, spreadsheetId: string, warehouses: Warehouse[]) {
     try {
-        const sortWarehouses = warehouses.sort((a, b) => Number(b.boxDeliveryAndStorageExpr) - Number(a.boxDeliveryAndStorageExpr));
+        const sortWarehouses = warehouses.sort((a, b) => Number(a.boxDeliveryAndStorageExpr) - Number(b.boxDeliveryAndStorageExpr));
 
         const body = [
             [

@@ -15,4 +15,3 @@ await getAuthClient();
 
 // запускаем крон для работы с экселем
 startExcelJob();
-console.log("end");
