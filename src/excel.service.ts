@@ -1,6 +1,7 @@
 import * as cron from "node-cron";
 import { google } from "googleapis";
 import { getTarif } from "#wb.service.js";
+import { TarifByDay, Warehouse } from "#type.js";
 
 let authClient = null;
 const listName = `${process.env.EXCEL_TARIF_LIST}`;
@@ -17,21 +18,6 @@ export async function getAuthClient() {
         throw new Error("Проблема с авторизацией");
     }
 }
-
-type Warehouse = {
-    boxDeliveryAndStorageExpr: string | null;
-    boxDeliveryBase: string | null;
-    boxDeliveryLiter: string | null;
-    boxStorageBase: string | null;
-    boxStorageLiter: string | null;
-    tarif_by_day_id: number | null;
-};
-
-type TarifByDay = {
-    dtNextBox: string | null;
-    dtTillMax: string | null;
-    warehouseList: Warehouse[];
-};
 
 const spreadsheetId = `${process.env.TABLE_ID}`;
 const range = "Sheet1!A1:D10";
@@ -50,36 +36,17 @@ async function setSheetData() {
         await createTarifList(service);
     }
 
-    const tarif: TarifByDay = await getTarif();
+    const { warehouses, ...tarif } = await getTarif();
 
-    const header = [
-        ["Текущая дата", tarif.date],
-        ["Дата начала следующего тарифа", tarif.dtNextBox],
-        ["Дата окончания последнего установленного тарифа", tarif.dtTillMax],
-    ];
+    await setHeader(service, spreadsheetId, tarif);
 
-    const range = `${listName}!A1:B3`;
-    try {
-        const response = await service.spreadsheets.values.update({
-            spreadsheetId,
-            range,
-            valueInputOption: "USER_ENTERED",
-            requestBody: {
-                values: header,
-            },
-        });
-        console.log("Записали", response.data);
-    } catch (err) {
-        console.error("Ошибка при записи", err);
-    }
+    await setBody(service, spreadsheetId, warehouses);
 }
 
 export function startExcelJob() {
     cron.schedule("*/10 * * * * *", async function () {
         try {
-            console.log("ОТПРАВКА");
             await setSheetData();
-            console.log("ПОЛУЧЕНИЕ");
         } catch (e) {
             throw new Error(e);
         }
@@ -111,8 +78,76 @@ async function createTarifList(service) {
         };
 
         const res = await service.spreadsheets.batchUpdate({ spreadsheetId: `${process.env.TABLE_ID}`, resource: { requests: [addSheet] } });
-        console.log("createTarifList END", res.data);
+        console.log("createTarifList SUCCESS", res.data);
     } catch (e) {
         console.error("createTarifList ERROR", e);
+    }
+}
+
+async function setHeader(service, spreadsheetId: string, tarif: Omit<TarifByDay, "warehouseList">) {
+    try {
+        const header = [
+            ["Текущая дата", tarif.date],
+            ["Дата начала следующего тарифа", tarif.dtNextBox],
+            ["Дата окончания последнего установленного тарифа", tarif.dtTillMax],
+        ];
+
+        const range = `${listName}!A1:B3`;
+
+        await service.spreadsheets.values.update({
+            spreadsheetId,
+            range,
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: header,
+            },
+        });
+        console.log("setHeader SUCCESS");
+    } catch (err) {
+        console.error("setHeader ERROR", err);
+    }
+}
+
+async function setBody(service, spreadsheetId: string, warehouses: Warehouse[]) {
+    try {
+        const sortWarehouses = warehouses.sort((a, b) => Number(b.boxDeliveryAndStorageExpr) - Number(a.boxDeliveryAndStorageExpr));
+
+        const body = [
+            [
+                "Название склада",
+                "Доставка 1 литра",
+                "Доставка каждого дополнительного литра",
+                "Хранение 1 литра",
+                "Хранение каждого дополнительного литра",
+                "Коэффициент",
+            ],
+        ];
+
+        for (const warehouse of sortWarehouses) {
+            body.push([
+                warehouse.warehouseName,
+                warehouse.boxDeliveryBase,
+                warehouse.boxDeliveryLiter,
+                warehouse.boxStorageBase,
+                warehouse.boxStorageLiter,
+                warehouse.boxDeliveryAndStorageExpr,
+            ]);
+        }
+
+        const limit = warehouses.length + 5;
+        const range = `${listName}!A5:F${limit}`;
+
+        await service.spreadsheets.values.update({
+            spreadsheetId,
+            range,
+            valueInputOption: "USER_ENTERED",
+            requestBody: {
+                values: body,
+            },
+        });
+
+        console.log("setBody SUCCESS");
+    } catch (err) {
+        console.error("setBody ERROR", err);
     }
 }

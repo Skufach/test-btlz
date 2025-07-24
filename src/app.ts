@@ -8,7 +8,7 @@ await migrate.latest();
 await seed.run();
 
 console.log("start");
-// startWbJob();
+startWbJob();
 
 // получаем токен для обращения в google
 await getAuthClient();

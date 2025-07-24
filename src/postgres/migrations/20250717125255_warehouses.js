@@ -10,6 +10,7 @@ export async function up(knex) {
         table.string("boxDeliveryLiter").nullable();
         table.string("boxStorageBase").nullable();
         table.string("boxStorageLiter").nullable();
+        table.string("warehouseName").nullable();
         table.integer("tarifId").unsigned().references("tarifs.id").onDelete("CASCADE");
 
         table.timestamp("created_at", { useTz: true }).defaultTo(knex.fn.now());

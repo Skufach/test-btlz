@@ -23,7 +23,6 @@ export function startWbJob() {
             });
 
             const data = res.data.response.data;
-            console.log("rees", data);
             await insertOrUpdate(data, currentDate);
         } catch {
             throw new Error("Ошибка при обращении к WB");
@@ -50,7 +49,6 @@ async function insertOrUpdate(record: TarifByDay, currentDate: string) {
                 .returning("id");
 
             const tarifId = res[0].id;
-            console.log("tarifId = " + tarifId);
             await trx("warehouses").where({ tarifId }).delete();
 
             for (const warehouse of warehouseList) {
@@ -60,6 +58,7 @@ async function insertOrUpdate(record: TarifByDay, currentDate: string) {
                     boxDeliveryLiter: warehouse.boxDeliveryLiter,
                     boxStorageBase: warehouse.boxStorageBase,
                     boxStorageLiter: warehouse.boxStorageLiter,
+                    warehouseName: warehouse.warehouseName,
                     tarifId,
                 });
             }
@@ -73,7 +72,7 @@ export async function getTarif(): Promise<TarifByDay> {
     try {
         return await db("tarifs")
             .first("tarifs.date as date", "tarifs.dtNextBox as dtNextBox", "tarifs.dtTillMax as dtTillMax", db.raw("json_agg(warehouses) as warehouses"))
-            .where({ date: "2025-07-18" })
+            .where({ date: getCurrentDateISO() })
             .leftJoin("warehouses", "tarifs.id", "warehouses.tarifId")
             .groupBy("tarifs.id");
     } catch (e) {

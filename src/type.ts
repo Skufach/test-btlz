@@ -1,10 +1,11 @@
 export type Warehouse = {
-    boxDeliveryAndStorageExpr: string | null;
-    boxDeliveryBase: string | null;
-    boxDeliveryLiter: string | null;
-    boxStorageBase: string | null;
-    boxStorageLiter: string | null;
-    tarif_by_day_id: number | null;
+    boxDeliveryAndStorageExpr: string;
+    boxDeliveryBase: string;
+    boxDeliveryLiter: string;
+    boxStorageBase: string;
+    boxStorageLiter: string;
+    warehouseName: string;
+    tarif_by_day_id: number;
 };
 
 export type TarifByDay = {
