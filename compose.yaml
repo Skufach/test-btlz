@@ -60,6 +60,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       PORT: ${APP_PORT}
       WB_KEY: ${WB_KEY}
+      EXCEL_TARIF_LIST: ${EXCEL_TARIF_LIST}
+      SPREADSHEET_IDS: ${SPREADSHEET_IDS}
       NODE_ENV: production
 
     ports:

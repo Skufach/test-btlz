@@ -13,9 +13,12 @@ function getCurrentDateISO() {
 }
 
 export function startWbJob() {
-    cron.schedule("*/3 * * * * *", async function () {
+    cron.schedule("*/30 * * * * *", async function () {
         try {
             const currentDate = getCurrentDateISO();
+
+            console.log("Забираем данные с WB за " + currentDate);
+
             const res = await axios.get(`https://common-api.wildberries.ru/api/v1/tariffs/box?date=${currentDate}`, {
                 headers: {
                     Authorization: `${process.env.WB_KEY}`,
@@ -32,6 +35,7 @@ export function startWbJob() {
 
 async function insertOrUpdate(record: TarifByDay, currentDate: string) {
     try {
+        console.log("insertOrUpdate, warehouseListLen = ", record.warehouseList.length);
         await db.transaction(async (trx) => {
             const { warehouseList, ...rest } = record;
             const tarif: Omit<TarifByDay, "warehouseList"> = rest;
@@ -71,11 +75,12 @@ async function insertOrUpdate(record: TarifByDay, currentDate: string) {
 export async function getTarif(): Promise<TarifByDay> {
     try {
         return await db("tarifs")
-            .first("tarifs.date as date", "tarifs.dtNextBox as dtNextBox", "tarifs.dtTillMax as dtTillMax", db.raw("json_agg(warehouses) as warehouses"))
+            .first("tarifs.date as date", "tarifs.dtNextBox as dtNextBox", "tarifs.dtTillMax as dtTillMax", db.raw('json_agg(warehouses) as "warehouseList"'))
             .where({ date: getCurrentDateISO() })
             .leftJoin("warehouses", "tarifs.id", "warehouses.tarifId")
             .groupBy("tarifs.id");
     } catch (e) {
         console.error(e);
+        throw e;
     }
 }
